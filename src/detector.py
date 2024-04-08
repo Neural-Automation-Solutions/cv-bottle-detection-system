@@ -17,6 +17,7 @@ Padding: Dict[str, int] = {
     'right': 0,
 }
 
+
 class Detector:
     '''
     A class that represents a detector.
