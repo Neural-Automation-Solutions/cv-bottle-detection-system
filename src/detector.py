@@ -10,13 +10,6 @@ from src.utils import is_package, modify_contrast, modify_exposure
 
 from typing import Dict, Tuple, Union
 
-Padding: Dict[str, int] = {
-    'top': 0,
-    'bottom': 0,
-    'left': 0,
-    'right': 0,
-}
-
 
 class Detector:
     '''
@@ -26,7 +19,6 @@ class Detector:
     
     def __init__(self,
             # dataset parameters
-            padding: Padding,
             input_shape: Tuple[int, int, int],
             num_bottles: int,
             
@@ -34,6 +26,14 @@ class Detector:
             alpha: float,
             beta: float,
             gamma: float = 1,
+
+            # initialize padding
+            padding: Dict[str, int] = {
+                'top': 0,
+                'bottom': 0,
+                'left': 0,
+                'right': 0,
+            },
             
             # debug flag
             DEBUG: bool = False
