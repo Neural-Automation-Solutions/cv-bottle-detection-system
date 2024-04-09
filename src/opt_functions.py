@@ -24,9 +24,9 @@ def package_optimization(alpha, beta, gamma):
     :return: The ration of the bottles the model detected devided than the bottles it should've
     detected
     '''
-    
+
     # Hard code the number of packages the given video contains
-    total_packages = 90 # (a package is detected more than once)
+    total_packages = 6
 
     # Setting the directory that contain the images
     video_path = os.path.join("./data/cropped_video.mp4")
@@ -52,12 +52,19 @@ def package_optimization(alpha, beta, gamma):
         gamma=gamma
     )
 
+    is_package = False
     detected = 0
     while (ret):
         package = package_detector.detect_package(frame, _preproc=True)
 
+        # Condition to prevent the same package to be counted twice
         if package is not None:
-            detected += 1
+            if not is_package:
+                is_package = True
+                detected += 1
+        else:
+            if is_package:
+                is_package = False
 
         ret, frame = cap.read()
 
