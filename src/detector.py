@@ -217,7 +217,6 @@ class BottleDetector(BaseDetector):
 
     def __init__(self,
             # dataset parameters
-            input_shape: Tuple[int, int, int],
             num_bottles: int,
             
             # image preprocessing parameters
@@ -230,8 +229,6 @@ class BottleDetector(BaseDetector):
         ):
         '''
         Initializes the Base Detector.
-        
-        :param input_shape: The shape of the input image.
         
         :param num_bottles: The number of bottles to detect.
         
@@ -251,7 +248,6 @@ class BottleDetector(BaseDetector):
 
         assert num_bottles >= 0, 'The number of bottles must be greater than or equal to 0.'
 
-        self.input_shape = input_shape
         self.num_bottles = num_bottles
 
     def detect_bottles(self, img: np.array, _preproc: bool = False) -> int:
@@ -273,7 +269,7 @@ class BottleDetector(BaseDetector):
         contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         valid_contours = []
     
-        width, height = self.input_shape[:2]
+        width, height = img.shape[:2]
         
         # remove contours that are too big (package contour)
         for i, contour in enumerate(contours):
