@@ -22,6 +22,7 @@ def modify_contrast(img: np.array, alpha: float, beta: float) -> np.array:
     :return: The modified image.
     '''
     return cv2.addWeighted(img, alpha, img, 0, beta)
+    # return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
 
 def modify_exposure(img: np.array, gamma: float) -> np.array:
     '''
@@ -57,3 +58,30 @@ def is_package(h: int, w: int, dv: int, dh: int, threshold = .7) -> bool:
         return False
     
     return True
+
+def distance_segmentation(img: np.array) -> int:
+    '''
+    Uses distance transform to segment the image.
+    Assumes the image is binary.
+    Returns the number of objects in the given image.
+    
+    For more on how this works, see:
+    https://docs.opencv.org/4.x/d3/dc1/tutorial_basic_linear_transform.html
+    
+    :param img: The image to segment.
+    
+    :return: The number of objects in the given image.
+    '''
+    
+    # Finding sure foreground area - area which we are sure is the object
+    dist_transform = cv2.distanceTransform(img, cv2.DIST_L2, 5)
+    
+    ret, sure_fg = cv2.threshold(dist_transform, 0.7*dist_transform.max(), 255, 0)
+
+    # convert to uint8 type so that it can be used in findContours
+    sure_fg = np.uint8(sure_fg)
+    
+    # get contours from sure_fg
+    contours, _ = cv2.findContours(sure_fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+    return len(contours)
