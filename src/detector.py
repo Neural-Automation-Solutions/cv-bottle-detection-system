@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import logging
 
-from src.utils import is_package, modify_contrast, modify_exposure
+from src.utils import is_package, modify_contrast, modify_exposure, distance_segmentation
 
 from typing import Dict, Tuple, Union
 
@@ -34,14 +34,14 @@ class BaseDetector:
         Use alpha > 1 to increase the contrast of the image.
         
         :param beta: The second parameter controlling the brightness of the image.
-        Allowed values are -127 <= beta <= 127.
+        Allowed values are -300 <= beta <= 300.
         
         :param gamma: The third parameter controlling the gamma correction (exposure) of the image.
         Allowed values are gamma >= 1.
         '''
 
         assert alpha >= 0, 'The alpha parameter must be greater than or equal to 0.'
-        assert -127 <= beta <= 127, 'The beta parameter must be between -127 and 127.'
+        assert -300 <= beta <= 300, 'The beta parameter must be between -300 and 300.'
         assert gamma >= 1, 'The gamma parameter must be greater than or equal to 1.'
 
         self.alpha = alpha
@@ -68,6 +68,11 @@ class BaseDetector:
         # modify the contrast and brightness
         out = modify_contrast(img, self.alpha, self.beta)
         out = modify_exposure(out, self.gamma)
+        
+        # debug
+        # cv2.imshow('preprocessed', out)
+        # cv2.waitKey(0)
+        
         return out
 
 
@@ -175,17 +180,18 @@ class PackageDetector(BaseDetector):
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         contours, hierarchy = cv2.findContours(dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        
+                
         dv = self.padding['bottom'] - self.padding['top']
         dh = self.padding['right'] - self.padding['left']
         
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
+            
             if self._in_threshold_lines(x, y, w, h):
                 
                 if (w < 10 or h < 10):
                     continue
-                
+
                 if is_package(h, w, dv, dh):
                     package = dst[y:y+h, x:x+w] if _return_modified else img[y:y+h, x:x+w]
                     return package
@@ -264,35 +270,76 @@ class BottleDetector(BaseDetector):
             img = self._preprocess(img)
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
             img = dst
 
         contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
         valid_contours = []
     
         width, height = img.shape[:2]
         
-        # remove contours that are too big (package contour)
+        # remove package contour
+        if len(contours) > 0:
+            # sort contours by area
+            contours = sorted(contours, key=cv2.contourArea, reverse=True)
+            contours = contours[2:]
+        
+        # remove contours that are too small
         for i, contour in enumerate(contours):
             x, y, w, h = cv2.boundingRect(contour)
-            if w >= .6 * width or h >= .6 * height:
+            if w <= .1 * width or h <= .1 * height:
                 continue
+            
             valid_contours.append(contour)
         
         if len(contours) == 0:
             return 0
 
-        # sort contous by area
-        valid_contours = sorted(valid_contours, key=cv2.contourArea, reverse=True)
+        # remove contours that are inside other contours
+        contours_to_remove = []
+        for i, contour in enumerate(valid_contours):
+            if i in contours_to_remove:
+                continue
+            for j, other_contour in enumerate(valid_contours):
+                
+                if j in contours_to_remove:
+                    continue
+                                
+                if i == j:
+                    continue
+                
+                x, y, w, h = cv2.boundingRect(contour)
+                x1, y1, w1, h1 = cv2.boundingRect(other_contour)
+                
+                if x1 >= x and y1 >= y and x1 + w1 <= x + w and y1 + h1 <= y + h:
+                    contours_to_remove.append(j)
+                    
+                    # fill contour with white
+                    cv2.rectangle(img, (x1, y1), (x1+w1, y1+h1), (255, 255, 255), -1)
+        
+        valid_contours = [contour for i, contour in enumerate(valid_contours) if i not in contours_to_remove]
+
         # keep only the first num_bottles contours
         valid_contours = valid_contours[:self.num_bottles]
 
-        # remove contours that are too small
-        area_avg = cv2.contourArea(valid_contours[0])
-        for i, contour in enumerate(valid_contours):
-            area = cv2.contourArea(contour)
-            if area < .5 * area_avg or area > 1.5 * area_avg:
-                valid_contours.pop(i)
-            else:
-                area_avg = (area_avg + area) / 2
+        # fill contours with white
+        for contour in valid_contours:
+            cv2.drawContours(img, [contour], -1, (255, 255, 255), -1)
+        
+        final = 0
 
-        return len(valid_contours)
+        for contour in valid_contours:
+            
+            new_img = np.zeros_like(img)
+            
+            # fill contour with white
+            cv2.drawContours(new_img, [contour], -1, (255, 255, 255), -1)
+            
+            # crop image at contour bounding box
+            x, y, w, h = cv2.boundingRect(contour)
+            crop_img = new_img[y:y+h, x:x+w]
+
+            final += distance_segmentation(crop_img)
+
+        return final
