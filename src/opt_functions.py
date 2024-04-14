@@ -16,6 +16,7 @@ def package_optimization(
         width: int = 640,
         n_iter: int = 10,
         init_points: int = 5,
+        verbose: int = 0,
     ) -> Tuple[float, float, float]:
     '''
     Optimizes a PackageDetector object to detect packages in images.
@@ -66,9 +67,6 @@ def package_optimization(
         
         correct_detection = 0
         for annotation in annotations:
-            
-            path = os.path.join(data_dir, annotation['filename'])
-            
             # read image
             img = cv2.imread(os.path.join(data_dir, annotation['filename']))
             
@@ -90,7 +88,8 @@ def package_optimization(
             'alpha': (0, 10),
             'beta': (-300, 300),
             'gamma': (1, 10)
-        }
+        },
+        verbose=verbose
     )
     
     # Run the optimizer
