@@ -175,9 +175,9 @@ class PackageDetector(BaseDetector):
         :return: The cropped (modified) image of the package or None. 
         '''
         if _preproc:
-            img = self._preprocess(img)
+            new_img = self._preprocess(img)
         
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
         th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         contours, hierarchy = cv2.findContours(dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                 
@@ -327,6 +327,10 @@ class BottleDetector(BaseDetector):
         for contour in valid_contours:
             cv2.drawContours(img, [contour], -1, (255, 255, 255), -1)
         
+        # we have the correct number of bottles so we just return
+        if len(valid_contours) == self.num_bottles:
+            return self.num_bottles
+
         final = 0
 
         for contour in valid_contours:
