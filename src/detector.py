@@ -358,8 +358,8 @@ class BottleDetector(BaseDetector):
             x, y, w, h = cv2.boundingRect(contour)
             crop_img = new_img[y:y+h, x:x+w]
 
-            cv2.imshow('crop_img', crop_img)
-            cv2.waitKey(0)
+            # cv2.imshow('crop_img', crop_img)
+            # cv2.waitKey(0)
 
             final += distance_segmentation(crop_img)
 
