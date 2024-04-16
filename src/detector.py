@@ -269,29 +269,57 @@ class BottleDetector(BaseDetector):
         if _preproc:
             img = self._preprocess(img)
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
             th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
             img = dst
 
-        contours, hierarchy = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(img, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         
-        valid_contours = []
-    
-        width, height = img.shape[:2]
+        valid_contours = []   
+        height, width = img.shape[:2]
         
-        # remove package contour
-        if len(contours) > 0:
-            # sort contours by area
-            contours = sorted(contours, key=cv2.contourArea, reverse=True)
-            contours = contours[2:]
-        
+        nodes_to_remove = []
         # remove contours that are too small
         for i, contour in enumerate(contours):
             x, y, w, h = cv2.boundingRect(contour)
-            if w <= .1 * width or h <= .1 * height:
+
+            _next = hierarchy[0][i][0]
+            previous = hierarchy[0][i][1]
+            first_child = hierarchy[0][i][2]
+            parent = hierarchy[0][i][3]
+            
+            # check for thresholds
+            check = w >= .9 * width or h >= .9 * height or w <= .1 * width or h <= .1 * height
+            
+            # check if contour touches the edge
+            check = check or x == 0 or y == 0 or x + w >= width or y + h >= height
+            
+            if check:
+                
+                # update previous
+                if previous != -1:
+                    hierarchy[0][previous][1] = _next
+                
+                # update next
+                if _next != -1:
+                    hierarchy[0][_next][1] = previous
+                
+                # update children
+                hierarchy[0][first_child][3] = parent
+                next_child = hierarchy[0][first_child][0]
+                
+                while next_child != -1:
+                    hierarchy[0][next_child][3] = parent
+                    next_child = hierarchy[0][next_child][0]
+                
+                nodes_to_remove.append(i)
+                
                 continue
             
             valid_contours.append(contour)
+
+        new_hierarchy = [list(node) for i, node in enumerate(hierarchy[0]) if i not in nodes_to_remove]
         
         if len(contours) == 0:
             return 0
@@ -299,25 +327,15 @@ class BottleDetector(BaseDetector):
         # remove contours that are inside other contours
         contours_to_remove = []
         for i, contour in enumerate(valid_contours):
-            if i in contours_to_remove:
+            parent = new_hierarchy[i][3]
+            if parent == -1:
                 continue
-            for j, other_contour in enumerate(valid_contours):
-                
-                if j in contours_to_remove:
-                    continue
-                                
-                if i == j:
-                    continue
-                
-                x, y, w, h = cv2.boundingRect(contour)
-                x1, y1, w1, h1 = cv2.boundingRect(other_contour)
-                
-                if x1 >= x and y1 >= y and x1 + w1 <= x + w and y1 + h1 <= y + h:
-                    contours_to_remove.append(j)
-                    
-                    # fill contour with white
-                    cv2.rectangle(img, (x1, y1), (x1+w1, y1+h1), (255, 255, 255), -1)
-        
+            
+            contours_to_remove.append(i)
+            
+            # fill contour with white
+            cv2.drawContours(img, [contour], -1, (255, 255, 255), -1)
+            
         valid_contours = [contour for i, contour in enumerate(valid_contours) if i not in contours_to_remove]
 
         # keep only the first num_bottles contours
@@ -326,10 +344,6 @@ class BottleDetector(BaseDetector):
         # fill contours with white
         for contour in valid_contours:
             cv2.drawContours(img, [contour], -1, (255, 255, 255), -1)
-        
-        # we have the correct number of bottles so we just return
-        if len(valid_contours) == self.num_bottles:
-            return self.num_bottles
 
         final = 0
 
@@ -343,6 +357,9 @@ class BottleDetector(BaseDetector):
             # crop image at contour bounding box
             x, y, w, h = cv2.boundingRect(contour)
             crop_img = new_img[y:y+h, x:x+w]
+
+            cv2.imshow('crop_img', crop_img)
+            cv2.waitKey(0)
 
             final += distance_segmentation(crop_img)
 

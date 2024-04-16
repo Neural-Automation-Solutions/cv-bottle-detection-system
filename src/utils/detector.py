@@ -84,11 +84,13 @@ def distance_segmentation(img: np.array) -> int:
     # get contours from sure_fg
     contours, _ = cv2.findContours(sure_fg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    area = sure_fg.shape[0] * sure_fg.shape[1]
-    bbox_areas = []
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        bbox_areas.append(h * w)
-    contours = [c for index, c in enumerate(contours) if bbox_areas[index] > .1 * area]
+    # remove contours that are too small
+    # area = sure_fg.shape[0] * sure_fg.shape[1]
+    # bbox_areas = []
+    # for contour in contours:
+    #     x, y, w, h = cv2.boundingRect(contour)
+    #     bbox_areas.append(h * w)
+    # contours = [c for index, c in enumerate(contours) if bbox_areas[index] > .1 * area]
+    # print(len(contours))
     
     return len(contours)
