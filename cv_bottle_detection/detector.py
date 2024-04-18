@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import logging
 
-from src.utils import is_package, modify_contrast, modify_exposure, distance_segmentation
+from cv_bottle_detection.utils import is_package, modify_contrast, modify_exposure, distance_segmentation
 
 from typing import Dict, Tuple, Union
 

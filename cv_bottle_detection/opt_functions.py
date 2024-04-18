@@ -2,8 +2,8 @@ import os
 import json
 import cv2
 
-from src.detector import PackageDetector, BottleDetector
-from src.optimizer import Optimizer
+from cv_bottle_detection.detector import PackageDetector, BottleDetector
+from cv_bottle_detection.optimizer import Optimizer
 
 from typing import Tuple
 
