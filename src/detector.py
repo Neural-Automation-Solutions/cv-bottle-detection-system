@@ -320,7 +320,7 @@ class BottleDetector(BaseDetector):
             valid_contours.append(contour)
 
         # this is only for the optimizer
-        if len(hierarchy) > 0 and len(hierarchy[0]) > 0:
+        if hierarchy is not None and hierarchy[0] is not None:
             new_hierarchy = [list(node) for i, node in enumerate(hierarchy[0]) if i not in nodes_to_remove]
         else:
             return 0
