@@ -8,7 +8,7 @@ import logging
 
 from cv_bottle_detection.utils import is_package, modify_contrast, modify_exposure, distance_segmentation
 
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, Union, List
 
 
 class BaseDetector:
@@ -163,7 +163,7 @@ class PackageDetector(BaseDetector):
             ],
         ]
 
-    def detect_package(self, img: np.array, _preproc: bool = False, _return_modified: bool = True) -> Union[np.array, None]:
+    def detect_package(self, img: np.array, _preproc: bool = True, _return_modified: bool = False, _return_bbox=False) -> Union[np.ndarray, None, Tuple[np.ndarray, Tuple[int, int, int, int]]]:
         '''
         Finds the package in the image.
         If no package is found, returns None.
@@ -171,6 +171,8 @@ class PackageDetector(BaseDetector):
         
         :param img: The image to find the package in.
         :param _preproc: If True, the image will be preprocessed before finding the package.
+        :param _return_modified: If True, the modified image will be returned.
+        :param _return_bbox: If True, the bounding box of the package will be returned.
         
         :return: The cropped (modified) image of the package or None. 
         '''
@@ -194,6 +196,10 @@ class PackageDetector(BaseDetector):
 
                 if is_package(h, w, dv, dh):
                     package = dst[y:y+h, x:x+w] if _return_modified else img[y:y+h, x:x+w]
+
+                    if _return_bbox:
+                        return package, (x, y, w, h)
+                    
                     return package
 
         return None
@@ -256,13 +262,14 @@ class BottleDetector(BaseDetector):
 
         self.num_bottles = num_bottles
 
-    def detect_bottles(self, img: np.array, _preproc: bool = False) -> int:
+    def detect_bottles(self, img: np.array, _preproc: bool = True, _return_bboxes=False) -> Union[int, List[Tuple[int, int, int, int]]]:
         '''
         Finds the number of bottles in the image.
         
         :param img: The image to find the bottles in.
         :param _preproc: If True, the image will be preprocessed before finding the bottles.
-        
+        :param _return_bboxes: If True, the bounding boxes of the bottles will be returned.
+
         :return: The number of bottles in the image.
         '''
         
@@ -362,9 +369,10 @@ class BottleDetector(BaseDetector):
             x, y, w, h = cv2.boundingRect(contour)
             crop_img = new_img[y:y+h, x:x+w]
 
-            # cv2.imshow('crop_img', crop_img)
-            # cv2.waitKey(0)
-
             final += distance_segmentation(crop_img)
+
+        if _return_bboxes:
+            bboxes = [cv2.boundingRect(contour) for contour in valid_contours]
+            return final, bboxes
 
         return final
