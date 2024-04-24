@@ -279,6 +279,10 @@ class BottleDetector(BaseDetector):
             
             th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
+            # opening
+            kernel = np.ones((3, 3), np.uint8)
+            dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel, iterations=10)
+            
             img = dst
 
         contours, hierarchy = cv2.findContours(img, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
