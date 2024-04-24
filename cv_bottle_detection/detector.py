@@ -182,7 +182,7 @@ class PackageDetector(BaseDetector):
         gray = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
         th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         contours, hierarchy = cv2.findContours(dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-                
+
         dv = self.padding['bottom'] - self.padding['top']
         dh = self.padding['right'] - self.padding['left']
         
@@ -281,7 +281,7 @@ class BottleDetector(BaseDetector):
             
             # opening
             kernel = np.ones((3, 3), np.uint8)
-            dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel, iterations=18)
+            dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel, iterations=17)
             
             img = dst
 
