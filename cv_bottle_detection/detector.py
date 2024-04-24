@@ -281,7 +281,7 @@ class BottleDetector(BaseDetector):
             
             # opening
             kernel = np.ones((3, 3), np.uint8)
-            dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel, iterations=10)
+            dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel, iterations=18)
             
             img = dst
 
