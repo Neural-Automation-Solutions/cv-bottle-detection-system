@@ -69,10 +69,6 @@ class BaseDetector:
         out = modify_contrast(img, self.alpha, self.beta)
         out = modify_exposure(out, self.gamma)
         
-        # debug
-        # cv2.imshow('preprocessed', out)
-        # cv2.waitKey(0)
-        
         return out
 
 
@@ -89,7 +85,10 @@ class PackageDetector(BaseDetector):
             # image preprocessing parameters
             alpha: float,
             beta: float,
+            delta: int,
+            epsilon: int,
             gamma: float = 1,
+
 
             # initialize image padding
             padding: Dict[str, int] = {
@@ -120,9 +119,21 @@ class PackageDetector(BaseDetector):
         
         :param gamma: The third parameter controlling the gamma correction (exposure) of the image.
         Allowed values are gamma >= 1.
+        
+        :param delta: The number of iterations for the erosion operation.
+        Allowed values are 0 <= delta <= 20.
+        
+        :param epsilon: The threshold value for the thresholding operation.
+        Allowed values are 0 <= epsilon <= 255.
         '''
 
         super().__init__(alpha, beta, gamma, DEBUG)
+
+        assert 0 <= delta <= 20, 'The delta parameter must be between 0 and 20.'
+        assert 0 <= epsilon <= 255, 'The epsilon parameter must be between 0 and 255.'
+
+        self.delta = delta
+        self.epsilon = epsilon
 
         assert padding['top'] >= 0, 'The top padding must be greater than or equal to 0.'
         assert padding['bottom'] >= 0, 'The bottom padding must be greater than or equal to 0.'
@@ -179,8 +190,14 @@ class PackageDetector(BaseDetector):
         if _preproc:
             new_img = self._preprocess(img)
         
+            # erode
+            kernel = np.ones((5,5),np.uint8)
+            new_img = cv2.erode(new_img,kernel,iterations = self.delta)
+      
         gray = cv2.cvtColor(new_img, cv2.COLOR_BGR2GRAY)
-        th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+      
+        th, dst = cv2.threshold(gray, self.epsilon, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
         contours, hierarchy = cv2.findContours(dst, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         dv = self.padding['bottom'] - self.padding['top']
@@ -235,6 +252,9 @@ class BottleDetector(BaseDetector):
             alpha: float,
             beta: float,
             gamma: float = 1,
+            delta: int = 0,
+            epsilon: int = 0,
+            stigma: float = .1,
             
             # debug flag
             DEBUG: bool = False
@@ -254,10 +274,27 @@ class BottleDetector(BaseDetector):
         
         :param gamma: The third parameter controlling the gamma correction (exposure) of the image.
         Allowed values are gamma >= 1.
+        
+        :param delta: The number of iterations for the erosion operation.
+        Allowed values are 0 <= delta <= 20.
+        
+        :param epsilon: The number of iterations for the opening operation.
+        Allowed values are 0 <= epsilon <= 20.
+        
+        :param stigma: The lower % threshold value for the bounding box size.
+        Allowed values are 0 <= stigma <= 1.
         '''
     
         super().__init__(alpha, beta, gamma, DEBUG)
 
+        assert 0 <= delta <= 20, 'The delta parameter must be between 0 and 20.'
+        assert 0 <= epsilon <= 20, 'The epsilon parameter must be between 0 and 20.'
+        assert 0 <= stigma <= 1, 'The stigma parameter must be between 0 and 1.'
+        
+        self.delta = delta
+        self.epsilon = epsilon
+        self.stigma = stigma
+        
         assert num_bottles >= 0, 'The number of bottles must be greater than or equal to 0.'
 
         self.num_bottles = num_bottles
@@ -275,16 +312,21 @@ class BottleDetector(BaseDetector):
         
         if _preproc:
             img = self._preprocess(img)
+            
+            # erode
+            kernel = np.ones((5, 5),np.uint8)
+            img = cv2.erode(img,kernel,iterations=self.delta)
+            
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
             th, dst = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
             # opening
             kernel = np.ones((3, 3), np.uint8)
-            dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel, iterations=15)
-            
-            img = dst
+            dst = cv2.morphologyEx(dst, cv2.MORPH_OPEN, kernel, iterations=self.epsilon)
 
+            img = dst
+        
         contours, hierarchy = cv2.findContours(img, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         
         valid_contours = []   
@@ -301,7 +343,7 @@ class BottleDetector(BaseDetector):
             parent = hierarchy[0][i][3]
             
             # check for thresholds
-            check = w >= .9 * width or h >= .9 * height or w <= .1 * width or h <= .1 * height
+            check = w >= .9 * width or h >= .9 * height or w <= self.stigma * width or h <= self.stigma * height
             
             # check if contour touches the edge
             check = check or x == 0 or y == 0 or x + w >= width or y + h >= height
@@ -336,7 +378,7 @@ class BottleDetector(BaseDetector):
         else:
             return 0
         
-        if len(contours) == 0:
+        if len(valid_contours) == 0:
             return 0
 
         # remove contours that are inside other contours
@@ -360,20 +402,7 @@ class BottleDetector(BaseDetector):
         for contour in valid_contours:
             cv2.drawContours(img, [contour], -1, (255, 255, 255), -1)
 
-        final = 0
-
-        for contour in valid_contours:
-            
-            new_img = np.zeros_like(img)
-            
-            # fill contour with white
-            cv2.drawContours(new_img, [contour], -1, (255, 255, 255), -1)
-            
-            # crop image at contour bounding box
-            x, y, w, h = cv2.boundingRect(contour)
-            crop_img = new_img[y:y+h, x:x+w]
-
-            final += distance_segmentation(crop_img)
+        final = len(valid_contours)
 
         if _return_bboxes:
             bboxes = [cv2.boundingRect(contour) for contour in valid_contours]
