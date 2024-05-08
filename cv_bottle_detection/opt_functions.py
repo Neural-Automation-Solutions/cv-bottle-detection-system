@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import cv2
 
 from cv_bottle_detection.detector import PackageDetector, BottleDetector
@@ -35,7 +36,7 @@ def package_optimization(
     with open(annotation_file, 'r') as f:
         annotations = json.load(f)
     
-    def loss_function(alpha: float, beta: float, gamma: float) -> float:
+    def loss_function(alpha: float, beta: float, gamma: float, delta: int = 0, epsilon: int = 0) -> float:
         '''
         The function that will be passed into the optimizer to find the proper
         alpha, beta, and gamma parameters for the packages.
@@ -58,15 +59,23 @@ def package_optimization(
         # Initialize the detector object
         package_detector = PackageDetector(
             input_shape=(width, height, 3),
+            # padding={
+            #     'top': 60,
+            #     'bottom': 450,
+            #     'left': 80,
+            #     'right': 610,
+            # },
             padding={
                 'top': 110,
                 'bottom': 410,
                 'left': 140,
-                'right': 530,
+                'right': 530,                
             },
             alpha=alpha,
             beta=beta,
-            gamma=gamma
+            gamma=gamma,
+            delta=math.floor(delta),
+            epsilon=math.floor(epsilon)
         )
         
         correct_detection = 0
@@ -91,9 +100,12 @@ def package_optimization(
         pbounds={
             'alpha': (0, 10),
             'beta': (-300, 300),
-            'gamma': (1, 10)
+            'gamma': (1, 10),
+            'delta': (0, 5),
+            'epsilon': (0, 100),
         },
-        verbose=verbose
+        verbose=verbose,
+        random_state=None,
     )
 
     # Run the optimizer
@@ -102,7 +114,7 @@ def package_optimization(
     # get the optimal parameters
     optimal_params = optimizer.get_max()
     
-    return optimal_params['alpha'], optimal_params['beta'], optimal_params['gamma']
+    return optimal_params['alpha'], optimal_params['beta'], optimal_params['gamma'], optimal_params['delta'], optimal_params['epsilon']
 
 
 def package_optimization_single(
@@ -126,7 +138,7 @@ def package_optimization_single(
     :return: The optimized alpha, beta, and gamma parameters for the PackageDetector object.
     '''
 
-    def loss_function(alpha: float, beta: float, gamma: float) -> float:
+    def loss_function(alpha: float, beta: float, gamma: float, delta: int, epsilon: int) -> float:
         '''
         The function that will be passed into the optimizer to find the proper
         alpha, beta, and gamma parameters for the packages.
@@ -150,14 +162,16 @@ def package_optimization_single(
         package_detector = PackageDetector(
             input_shape=(width, height, 3),
             padding={
-                'top': 110,
-                'bottom': 410,
-                'left': 140,
-                'right': 530,
+                'top': 60,
+                'bottom': 450,
+                'left': 80,
+                'right': 610,
             },
             alpha=alpha,
             beta=beta,
-            gamma=gamma
+            gamma=gamma,
+            delta=math.floor(delta),
+            epsilon=math.floor(epsilon)
         )
 
         # Read image
@@ -177,9 +191,12 @@ def package_optimization_single(
         pbounds={
             'alpha': (0, 10),
             'beta': (-300, 300),
-            'gamma': (1, 10)
+            'gamma': (1, 10),
+            'delta': (0, 20),
+            'epsilon': (100, 150),
         },
-        verbose=verbose
+        verbose=verbose,
+        random_state=None
     )
 
     # Run the optimizer
@@ -216,7 +233,7 @@ def bottle_optimization(
     with open(annotation_file, 'r') as f:
         annotations = json.load(f)
     
-    def loss_function(alpha: float, beta: float, gamma: float) -> float:
+    def loss_function(alpha: float, beta: float, gamma: float, delta: float = 0, epsilon: float = 0, stigma: float = .1) -> float:
         '''
         The function that will be passed into the optimizer to find the proper
         alpha, beta, and gamma parameters for the bottle detector.
@@ -241,7 +258,10 @@ def bottle_optimization(
             num_bottles=num_bottles,
             alpha=alpha,
             beta=beta,
-            gamma=gamma
+            gamma=gamma,
+            delta=math.floor(delta),
+            epsilon=math.floor(epsilon),
+            stigma=stigma,
         )
 
         acc = 0
@@ -262,9 +282,13 @@ def bottle_optimization(
         pbounds={
             'alpha': (0, 10),
             'beta': (-300, 300),
-            'gamma': (1, 10)
+            'gamma': (1, 10),
+            'delta': (0, 5),
+            'epsilon': (0, 5),
+            'stigma': (0, .2)
         },
-        verbose=verbose
+        verbose=verbose,
+        random_state=None,
     )
 
     # Run the optimizer
@@ -273,7 +297,7 @@ def bottle_optimization(
     # get the optimal parameters
     optimal_params = optimizer.get_max()
     
-    return optimal_params['alpha'], optimal_params['beta'], optimal_params['gamma']
+    return optimal_params['alpha'], optimal_params['beta'], optimal_params['gamma'], optimal_params['delta'], optimal_params['epsilon'], optimal_params['stigma']
 
 
 def bottle_optimization_single(
